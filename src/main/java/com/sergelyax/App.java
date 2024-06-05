@@ -31,7 +31,7 @@ public class App {
         try (BufferedReader reader = new BufferedReader(new FileReader(inputFile))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                processLine(line.replace("\"", "").split(";", -1));
+                processLine(parseLine(line));
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -67,7 +67,7 @@ public class App {
         groupAdditionalEntities();
 
         for (List<MultiColumnEntity> entities : entityContainers.values()) {
-            DataGroup dataGroup = new DataGroup(entities);
+            DataGroup dataGroup = new DataGroup(new ArrayList<>(new HashSet<>(entities))); // Удаление дублей и преобразование в List
             orderedGroups.computeIfAbsent(dataGroup.getSize(), k -> new ArrayList<>()).add(dataGroup);
             groupCount++;
         }
@@ -97,7 +97,7 @@ public class App {
         }
 
         for (Set<MultiColumnEntity> subGroup : subGroups) {
-            DataGroup dataGroup = new DataGroup(new ArrayList<>(subGroup));
+            DataGroup dataGroup = new DataGroup(new ArrayList<>(subGroup)); // Удаление дублей и преобразование в List
             orderedGroups.computeIfAbsent(dataGroup.getSize(), k -> new ArrayList<>()).add(dataGroup);
             groupCount++;
         }
@@ -105,7 +105,7 @@ public class App {
 
     @SuppressWarnings("CallToPrintStackTrace")
     private static void outputResults() {
-        System.out.println("Group count: " + groupCount);
+        System.out.println("Group count with more than one element: " + groupCount);
         int count = 1;
         try (PrintWriter writer = new PrintWriter("output.txt")) {
             for (List<DataGroup> dataGroups : orderedGroups.values()) {
@@ -117,5 +117,25 @@ public class App {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private static String[] parseLine(String line) {
+        List<String> values = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (char ch : line.toCharArray()) {
+            if (ch == '"') {
+                inQuotes = !inQuotes;
+                current.append(ch);
+            } else if (ch == ';' && !inQuotes) {
+                values.add(current.toString().replace("\"", ""));
+                current.setLength(0);
+            } else {
+                current.append(ch);
+            }
+        }
+        values.add(current.toString().replace("\"", ""));
+        return values.toArray(new String[0]);
     }
 }
