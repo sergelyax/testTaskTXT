@@ -1,8 +1,8 @@
 package com.sergelyax;
 
-import com.sergelyax.data.Data;
-import com.sergelyax.entity.Entity;
-import com.sergelyax.entity.MultiEntity;
+import com.sergelyax.data.DataGroup;
+import com.sergelyax.entity.ColumnEntity;
+import com.sergelyax.entity.MultiColumnEntity;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -12,12 +12,13 @@ import java.util.*;
 
 public class App {
 
-    private static Set<MultiEntity> uniqueStrings = new HashSet<>();
-    private static Map<Entity, List<MultiEntity>> containers = new HashMap<>();
-    private static Map<Integer, List<Data>> orderedGroup = new TreeMap<>(Collections.reverseOrder());
+    private static final Set<MultiColumnEntity> uniqueEntities = new HashSet<>();
+    private static final Map<ColumnEntity, List<MultiColumnEntity>> entityContainers = new HashMap<>();
+    private static final Map<Integer, List<DataGroup>> orderedGroups = new TreeMap<>(Collections.reverseOrder());
 
-    private static int countGroup = 0;
+    private static int groupCount = 0;
 
+    @SuppressWarnings("CallToPrintStackTrace")
     public static void main(String[] args) {
         if (args.length < 1) {
             System.out.println("Usage: java -Xmx1G -jar target/my-new-maven-project-1.0-SNAPSHOT.jar <input-file>");
@@ -25,91 +26,92 @@ public class App {
         }
 
         String inputFile = args[0];
-        long start = System.currentTimeMillis();
+        long startTime = System.currentTimeMillis();
 
         try (BufferedReader reader = new BufferedReader(new FileReader(inputFile))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                filterData(line.replace("\"", "").split(";", -1));
+                processLine(line.replace("\"", "").split(";", -1));
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        clearGroupWithoutPair();
-        finalGrouping();
-        printResults();
+        removeGroupsWithoutPair();
+        performFinalGrouping();
+        outputResults();
 
-        System.out.printf("%.2f seconds%n", (System.currentTimeMillis() - start) / 1000f);
+        System.out.printf("%.2f seconds%n", (System.currentTimeMillis() - startTime) / 1000f);
     }
 
-    private static void filterData(String[] values) {
+    private static void processLine(String[] values) {
         if (values.length == 3) {
-            MultiEntity multiEntity = new MultiEntity(values);
-            if (multiEntity.isLegit() && uniqueStrings.add(multiEntity)) {
-                primaryGrouping(multiEntity);
+            MultiColumnEntity multiColumnEntity = new MultiColumnEntity(values);
+            if (multiColumnEntity.isLegit() && uniqueEntities.add(multiColumnEntity)) {
+                groupEntities(multiColumnEntity);
             }
         }
     }
 
-    private static void primaryGrouping(MultiEntity multiEntity) {
-        for (Entity entity : multiEntity.getLegitEntities()) {
-            containers.computeIfAbsent(entity, k -> new ArrayList<>()).add(multiEntity);
+    private static void groupEntities(MultiColumnEntity multiColumnEntity) {
+        for (ColumnEntity columnEntity : multiColumnEntity.getLegitColumnEntities()) {
+            entityContainers.computeIfAbsent(columnEntity, k -> new ArrayList<>()).add(multiColumnEntity);
         }
     }
 
-    private static void clearGroupWithoutPair() {
-        containers.entrySet().removeIf(entry -> entry.getValue().size() <= 1);
+    private static void removeGroupsWithoutPair() {
+        entityContainers.entrySet().removeIf(entry -> entry.getValue().size() <= 1);
     }
 
-    private static void finalGrouping() {
-        additionalGrouping();
+    private static void performFinalGrouping() {
+        groupAdditionalEntities();
 
-        for (List<MultiEntity> group : containers.values()) {
-            Data data = new Data(group);
-            orderedGroup.computeIfAbsent(data.size(), k -> new ArrayList<>()).add(data);
-            countGroup++;
+        for (List<MultiColumnEntity> entities : entityContainers.values()) {
+            DataGroup dataGroup = new DataGroup(entities);
+            orderedGroups.computeIfAbsent(dataGroup.getSize(), k -> new ArrayList<>()).add(dataGroup);
+            groupCount++;
         }
     }
 
-    private static void additionalGrouping() {
-        Map<MultiEntity, Integer> multiEntityCount = new HashMap<>();
+    private static void groupAdditionalEntities() {
+        Map<MultiColumnEntity, Integer> multiEntityCount = new HashMap<>();
 
-        for (List<MultiEntity> entities : containers.values()) {
-            for (MultiEntity multiEntity : entities) {
-                multiEntityCount.merge(multiEntity, 1, Integer::sum);
+        for (List<MultiColumnEntity> entities : entityContainers.values()) {
+            for (MultiColumnEntity multiColumnEntity : entities) {
+                multiEntityCount.merge(multiColumnEntity, 1, Integer::sum);
             }
         }
 
-        List<Set<MultiEntity>> multiEntitySubGroup = new ArrayList<>();
-        for (Map.Entry<MultiEntity, Integer> entry : multiEntityCount.entrySet()) {
+        List<Set<MultiColumnEntity>> subGroups = new ArrayList<>();
+        for (Map.Entry<MultiColumnEntity, Integer> entry : multiEntityCount.entrySet()) {
             if (entry.getValue() > 1) {
-                Set<MultiEntity> set = new HashSet<>();
-                for (Entity entity : entry.getKey().getLegitEntities()) {
-                    if (containers.containsKey(entity)) {
-                        set.addAll(containers.remove(entity));
+                Set<MultiColumnEntity> set = new HashSet<>();
+                for (ColumnEntity columnEntity : entry.getKey().getLegitColumnEntities()) {
+                    if (entityContainers.containsKey(columnEntity)) {
+                        set.addAll(entityContainers.remove(columnEntity));
                     }
                 }
                 if (set.size() > 1)
-                    multiEntitySubGroup.add(set);
+                    subGroups.add(set);
             }
         }
 
-        for (Set<MultiEntity> subGroup : multiEntitySubGroup) {
-            Data data = new Data(new ArrayList<>(subGroup));
-            orderedGroup.computeIfAbsent(data.size(), k -> new ArrayList<>()).add(data);
-            countGroup++;
+        for (Set<MultiColumnEntity> subGroup : subGroups) {
+            DataGroup dataGroup = new DataGroup(new ArrayList<>(subGroup));
+            orderedGroups.computeIfAbsent(dataGroup.getSize(), k -> new ArrayList<>()).add(dataGroup);
+            groupCount++;
         }
     }
 
-    private static void printResults() {
-        System.out.println("Group count: " + countGroup);
+    @SuppressWarnings("CallToPrintStackTrace")
+    private static void outputResults() {
+        System.out.println("Group count: " + groupCount);
         int count = 1;
         try (PrintWriter writer = new PrintWriter("output.txt")) {
-            for (List<Data> dataList : orderedGroup.values()) {
-                for (Data data : dataList) {
+            for (List<DataGroup> dataGroups : orderedGroups.values()) {
+                for (DataGroup dataGroup : dataGroups) {
                     writer.printf("Group %d%n", count++);
-                    writer.println(data);
+                    writer.println(dataGroup);
                 }
             }
         } catch (IOException e) {

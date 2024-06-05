@@ -5,13 +5,13 @@ public enum ColumnOrder {
     Second(1),
     Third(2);
 
-    private int value;
+    private final int index;
 
-    ColumnOrder(int value) {
-        this.value = value;
+    ColumnOrder(int index) {
+        this.index = index;
     }
 
-    public int getValue() {
-        return value;
+    public int getIndex() {
+        return index;
     }
 }
