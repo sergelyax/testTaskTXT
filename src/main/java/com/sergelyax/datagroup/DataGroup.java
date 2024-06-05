@@ -1,4 +1,4 @@
-package com.sergelyax.data;
+package com.sergelyax.datagroup;
 
 import com.sergelyax.entity.MultiColumnEntity;
 

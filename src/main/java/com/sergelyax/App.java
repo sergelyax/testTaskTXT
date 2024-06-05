@@ -1,6 +1,6 @@
 package com.sergelyax;
 
-import com.sergelyax.data.DataGroup;
+import com.sergelyax.datagroup.DataGroup;
 import com.sergelyax.entity.ColumnEntity;
 import com.sergelyax.entity.MultiColumnEntity;
 
